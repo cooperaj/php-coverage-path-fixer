@@ -1,0 +1,26 @@
+{
+  "name": "cooperaj/php-coverage-path-fixer",
+  "description": "Manipulates .cov files path information when source files have moved or are in a different location",
+  "minimum-stability": "stable",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Adam Cooper",
+      "email": "adam@acpr.dev"
+    }
+  ],
+
+  "require": {
+    "phpunit/php-code-coverage": "^8.0.0",
+    "symfony/console": "^v5.0.4"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "9.0.1"
+  },
+  "autoload": {
+    "psr-4": {
+      "CoveragePathFixer\\": "src/"
+    }
+  },
+  "bin": [ "covpf" ]
+}
