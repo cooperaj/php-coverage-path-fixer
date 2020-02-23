@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace CoveragePathFixer;
 
 use CoveragePathFixer\Command\ChangePathPrefix;
+use CoveragePathFixer\Service\CoverageLoader;
+use CoveragePathFixer\Service\FileFinder;
+use CoveragePathFixer\Service\FileWriter;
 use Symfony\Component\Console\Application as ConsoleApplication;
 
 class Application extends ConsoleApplication
@@ -13,8 +16,12 @@ class Application extends ConsoleApplication
     {
         parent::__construct($name, $version);
 
-        $command = new ChangePathPrefix();
+        $finder = new FileFinder();
+        $loader = new CoverageLoader();
+        $writer = new FileWriter();
+
+        $command = new ChangePathPrefix($finder, $loader, $writer);
         $this->add($command);
-        $this->setDefaultCommand($command->getName(), true);
+        $this->setDefaultCommand($command->getName() ?? '', true);
     }
 }

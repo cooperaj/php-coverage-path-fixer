@@ -4,23 +4,44 @@ declare(strict_types=1);
 
 namespace CoveragePathFixer\Command;
 
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
-use RecursiveRegexIterator;
-use RegexIterator;
-use SebastianBergmann\CodeCoverage\CodeCoverage;
-use SebastianBergmann\CodeCoverage\Filter;
-use SebastianBergmann\CodeCoverage\Report\Clover;
-use SebastianBergmann\CodeCoverage\Report\PHP;
-use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Input\InputArgument;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
-use Symfony\Component\Console\Output\OutputInterface;
+use CoveragePathFixer\Service\{CoverageLoader, FileFinder, FileWriter, PathFixer};
+use SebastianBergmann\CodeCoverage\{CodeCoverage, Filter};
+use Symfony\Component\Console\{Command\Command,
+    Input\InputArgument,
+    Input\InputInterface,
+    Input\InputOption,
+    Output\OutputInterface};
 
 class ChangePathPrefix extends Command
 {
+    /**
+     * @var string Name of the command
+     */
     protected static $defaultName = 'fix';
+
+    /**
+     * @var FileFinder
+     */
+    private $finder;
+
+    /**
+     * @var CoverageLoader
+     */
+    private $loader;
+
+    /**
+     * @var FileWriter
+     */
+    private $writer;
+
+    public function __construct(FileFinder $finder, CoverageLoader $loader, FileWriter $writer)
+    {
+        parent::__construct(self::$defaultName);
+
+        $this->finder = $finder;
+        $this->loader = $loader;
+        $this->writer = $writer;
+    }
 
     protected function configure(): void
     {
@@ -66,46 +87,42 @@ class ChangePathPrefix extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        $fixer = new PathFixer(
+            $input->getArgument('original_prefix'),
+            $input->getArgument('replacement_prefix')
+        );
+
         try {
-            $files = $this->findCoverageFiles($input->getArgument('directory_to_search'));
+            $files = $this->finder->findCoverage($input->getArgument('directory_to_search'));
+            $output->writeln(sprintf('%d .cov files found', count($files)));
 
             $files = $this->iterateCoverageFiles(
                 $files,
-                $input->getArgument('original_prefix'),
-                $input->getArgument('replacement_prefix')
+                $fixer
             );
 
+            $this->writer->setFiles($files);
+
             if ($path = $input->getOption('merge')) {
-                $files = $this->mergeCoverageFiles($files, $path);
+                $this->writer->merge($path);
             }
 
-            $this->outputCoverageFiles($files, $input->getOption('clover'));
+            $this->writer->write($input->getOption('clover'));
         } catch (\Exception $ex) {
-            return $ex->getCode();
+            $output->writeln($ex->getMessage());
+            return 1;
         }
 
         return 0;
     }
 
-    private function changePrefix(array $data, string $originalPrefix, string $replacementPrefix): array
+    protected function iterateCoverageFiles(array $files, PathFixer $fixer): array
     {
-        return array_combine(array_map(function($el) use ($originalPrefix, $replacementPrefix) {
-            $el = preg_replace('#^' . $originalPrefix . '#', $replacementPrefix, $el);
-            return $el;
-        }, array_keys($data)), array_values($data));
-    }
+        return array_map(function(array $file) use ($fixer) {
+            $coverage = $this->loader->loadCoverage($file[0]);
 
-    private function iterateCoverageFiles(array $files, string $originalPrefix, string $replacementPrefix): array
-    {
-        return array_map(function(array $file) use ($originalPrefix, $replacementPrefix) {
-            $coverage = $this->loadCoverageFile($file[0]);
-
-            $data = $this->changePrefix($coverage->getData(), $originalPrefix, $replacementPrefix);
-            $whiteList = $this->changePrefix(
-                $coverage->filter()->getWhitelistedFiles(),
-                $originalPrefix,
-                $replacementPrefix
-            );
+            $data = $fixer->fix($coverage->getData());
+            $whiteList = $fixer->fix( $coverage->filter()->getWhitelistedFiles());
 
             $filter = new Filter();
             $filter->setWhitelistedFiles($whiteList);
@@ -115,55 +132,5 @@ class ChangePathPrefix extends Command
 
             return $coverage;
         }, $files);
-    }
-
-    private function findCoverageFiles(string $directory): array
-    {
-        $path = realpath($directory);
-
-        $directory = new RecursiveDirectoryIterator($path);
-        $iterator = new RecursiveIteratorIterator($directory);
-        $filtered = new RegexIterator($iterator, '/^.+\.cov$/i', RecursiveRegexIterator::GET_MATCH);
-
-        return iterator_to_array($filtered);
-    }
-
-    private function loadCoverageFile(string $file): CodeCoverage
-    {
-        $coverage = include $file;
-
-        if (!($coverage instanceof CodeCoverage)) {
-            unset($coverage);
-            throw new \Exception('File with coverage extension not resolved to CodeCoverage class');
-        }
-
-        return $coverage;
-    }
-
-    private function mergeCoverageFiles(array $files, string $path): array
-    {
-        $coverage = new CodeCoverage();
-
-        foreach ($files as $file => $coverage) {
-            $coverage->merge($coverage);
-        }
-
-        return [$path => $coverage];
-    }
-
-    private function outputCoverageFiles(array $files, bool $asClover = false): void
-    {
-        array_walk($files, function($coverage, $path) use ($asClover) {
-            if ($asClover) {
-                $filename = basename($path, '.cov');
-                $directory = dirname($path);
-
-                $reportWriter = new Clover();
-                $reportWriter->process($coverage, $directory . DIRECTORY_SEPARATOR . $filename . '.xml');
-            }
-
-            $reportWriter = new PHP();
-            $reportWriter->process($coverage, $path);
-        });
     }
 }
