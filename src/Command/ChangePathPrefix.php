@@ -87,15 +87,24 @@ class ChangePathPrefix extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $fixer = new PathFixer(
-            $input->getArgument('original_prefix'),
-            $input->getArgument('replacement_prefix')
-        );
+        $directory = $input->getArgument('directory_to_search');
+        $originalPrefix = $input->getArgument('original_prefix');
+        $replacementPrefix = $input->getArgument('replacement_prefix');
+
+        /** @var bool $asClover */
+        $asClover = $input->getOption('clover');
+
+        if (!is_string($directory) || !is_string($originalPrefix) || !is_string($replacementPrefix)) {
+            throw new \InvalidArgumentException('Argument(s) not specified as string');
+        }
+
+        $fixer = new PathFixer($originalPrefix, $replacementPrefix);
 
         try {
-            $files = $this->finder->findCoverage($input->getArgument('directory_to_search'));
+            $files = $this->finder->findCoverage($directory);
             $output->writeln(sprintf('%d .cov files found', count($files)));
 
+            /** @var array<string, CodeCoverage> $files */
             $files = $this->iterateCoverageFiles(
                 $files,
                 $fixer
@@ -104,10 +113,14 @@ class ChangePathPrefix extends Command
             $this->writer->setFiles($files);
 
             if ($path = $input->getOption('merge')) {
+                if (!is_string($path)) {
+                    throw new \InvalidArgumentException('Path to merged file must be provided as a string');
+                }
+
                 $this->writer->merge($path);
             }
 
-            $this->writer->write($input->getOption('clover'));
+            $this->writer->write($asClover);
         } catch (\Exception $ex) {
             $output->writeln($ex->getMessage());
             return 1;
@@ -116,13 +129,21 @@ class ChangePathPrefix extends Command
         return 0;
     }
 
+    /**
+     * @param string[] $files
+     * @param PathFixer $fixer
+     * @return CodeCoverage[]
+     */
     protected function iterateCoverageFiles(array $files, PathFixer $fixer): array
     {
-        return array_map(function(array $file) use ($fixer) {
-            $coverage = $this->loader->loadCoverage($file[0]);
+        return array_map(function(string $file) use ($fixer) {
+            $coverage = $this->loader->loadCoverage($file);
 
-            $data = $fixer->fix($coverage->getData());
-            $whiteList = $fixer->fix( $coverage->filter()->getWhitelistedFiles());
+            $data = $coverage->getData();
+            $data = $fixer->fix($data);
+
+            $whiteList = $coverage->filter()->getWhitelistedFiles();
+            $whiteList = $fixer->fix($whiteList);
 
             $filter = new Filter();
             $filter->setWhitelistedFiles($whiteList);

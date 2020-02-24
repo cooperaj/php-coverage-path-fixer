@@ -37,9 +37,17 @@ class PathFixer
         $originalPrefix = $this->originalPrefix;
         $replacementPrefix = $this->replacementPrefix;
 
-        return array_combine(array_map(function(string $el) use ($originalPrefix, $replacementPrefix) {
+        /** @var string[] $keys */
+        $keys = array_keys($data);
+
+        /** @var string[] $keys */
+        $keys = array_map(function(string $el) use ($originalPrefix, $replacementPrefix) {
             $el = preg_replace('#^' . $originalPrefix . '#', $replacementPrefix, $el);
             return $el;
-        }, array_keys($data)), array_values($data));
+        }, $keys);
+
+        $fixed = array_combine($keys, array_values($data));
+
+        return ($fixed !== false) ? $fixed : [];
     }
 }

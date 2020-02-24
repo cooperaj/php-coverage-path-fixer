@@ -11,14 +11,14 @@ use SebastianBergmann\CodeCoverage\Report\PHP;
 class FileWriter
 {
     /**
-     * @var CodeCoverage[]
+     * @var array<string, CodeCoverage>
      */
     private $files;
 
     /**
      * FileWriter constructor.
      *
-     * @param CodeCoverage[] $files
+     * @param array<string, CodeCoverage> $files
      */
     public function __construct(array $files = [])
     {
@@ -40,7 +40,7 @@ class FileWriter
     }
 
     /**
-     * @return CodeCoverage[]
+     * @return array<string, CodeCoverage>
      */
     public function getFiles(): array
     {
@@ -69,7 +69,7 @@ class FileWriter
     /**
      * Fluent method that allows the replacement of the list of files to write
      *
-     * @param CodeCoverage[] $files
+     * @param array<string, CodeCoverage> $files
      * @return FileWriter
      */
     public function setFiles(array $files): FileWriter
@@ -88,6 +88,7 @@ class FileWriter
      */
     public function write(bool $asClover = false): void
     {
+        /** @psalm-suppress MixedPropertyTypeCoercion */
         array_walk($this->files, function(CodeCoverage $coverage, string $path) use ($asClover) {
             if ($asClover) {
                 $filename = basename($path, '.cov');

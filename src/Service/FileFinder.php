@@ -11,6 +11,10 @@ use RegexIterator;
 
 class FileFinder
 {
+    /**
+     * @param string $directory
+     * @return string[]
+     */
     public function findCoverage(string $directory): array
     {
         $path = realpath($directory);
@@ -19,6 +23,7 @@ class FileFinder
         $iterator = new RecursiveIteratorIterator($directory);
         $filtered = new RegexIterator($iterator, '/^.+\.cov$/i', RecursiveRegexIterator::GET_MATCH);
 
-        return iterator_to_array($filtered);
+        /** @var string[] */
+        return array_keys(iterator_to_array($filtered));
     }
 }

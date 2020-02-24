@@ -15,6 +15,10 @@ class CoverageLoader
      */
     public function loadCoverage(string $file): CodeCoverage
     {
+        /**
+         * @psalm-suppress MixedAssignment
+         * @psalm-suppress UnresolvableInclude
+         */
         $coverage = include $file;
 
         if (!($coverage instanceof CodeCoverage)) {
