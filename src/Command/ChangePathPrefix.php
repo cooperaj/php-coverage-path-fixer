@@ -145,11 +145,14 @@ class ChangePathPrefix extends Command
             $whiteList = $coverage->filter()->getWhitelistedFiles();
             $whiteList = $fixer->fix($whiteList);
 
+            $tests = $coverage->getTests();
+
             $filter = new Filter();
             $filter->setWhitelistedFiles($whiteList);
 
             $coverage = new CodeCoverage(null, $filter);
             $coverage->setData($data);
+            $coverage->setTests($tests);
 
             return $coverage;
         }, $files);
