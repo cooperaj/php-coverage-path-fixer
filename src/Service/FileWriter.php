@@ -55,13 +55,13 @@ class FileWriter
      */
     public function merge(string $path): FileWriter
     {
-        $coverage = new CodeCoverage();
+        $combinedCoverage = new CodeCoverage();
 
         foreach ($this->files as $file => $coverage) {
-            $coverage->merge($coverage);
+            $combinedCoverage->merge($coverage);
         }
 
-        $this->files = [$path => $coverage];
+        $this->files = [$path => $combinedCoverage];
 
         return $this;
     }
